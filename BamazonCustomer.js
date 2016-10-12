@@ -16,14 +16,22 @@ db.configure({
 });
  
 
+function checkNumber(number){
 
+	if(number.match(/\d+/)){
+		return true;
+	}	
+	else{
+		return false;
+	}
+}
 
 function exit(){
 	return inquirer.prompt([
 
 	{
 		type: "input",
-		message: "Would you like to start shopping? (Y/N)",
+		message: "Would you like purchase an item? (Y/N)",
 		name: "checkout"
 	}]).then(function (result) {
 		if(result.checkout.toUpperCase() === 'Y'){
@@ -34,9 +42,8 @@ function exit(){
 		}
 		else{
 			return exit();
-
 		}
-	})
+	});
 
 }
 
@@ -90,7 +97,7 @@ function checkout(){
 			return updateTable(items.length-1);
 		}
 		else if(result.checkout.toUpperCase() === 'N'){
-			return printMenu();
+			return printMenu("");
 		}
 		else{
 			return checkout();
@@ -103,16 +110,14 @@ function getQuery(id, amount){
 	return db.query('SELECT ProductName, Price, StockQuantity FROM products WHERE ItemID ='+id).spread(function (rows) {
 		
 		if(rows.length<1){
-			console.log("I'm sorry that Item ID does not exist in our inventory");
+			return printMenu("I'm sorry that Item ID does not exist in our inventory");
 		}
 		else{
-			if(rows[0].StockQuantity === 0){
-				console.log("Sorry there are not any items avaliable!");
-				return printMenu();
+			if(parseInt(rows[0].StockQuantity) === 0){
+				return printMenu("Sorry there are not any items avaliable!");
 			}
-			else if(rows[0].StockQuantity<amount){
-				console.log("Sorry there are not enough items avaliable!");
-				return printMenu();
+			else if(parseInt(rows[0].StockQuantity)<amount){
+				return printMenu("Sorry there are not enough items avaliable!");
 			}
 			else{
 				items.push(rows[0].ProductName);
@@ -140,12 +145,21 @@ function orderItem(){
 	
 	}]).then(function (result) {
 
-		return getQuery(result.id, result.quant);
+		if(checkNumber(result.id) && checkNumber(result.quant)){
+			return getQuery(result.id, result.quant);
+		}
+		else{
+			console.log("Please enter a Number!")
+			return orderItem();
+		}
 	})
 }
 
-function printMenu(){
+function printMenu(message){
 	return db.query('SELECT * FROM products').spread(function (rows) {
+		
+		process.stdout.write('\033c');
+		console.log("Welcome to the Store!");
 		
 		var table = new Table({
     		head: ['Item ID', 'Product Name', 'Price'],
@@ -156,6 +170,9 @@ function printMenu(){
 			table.push([value.ItemID, value.ProductName, value.Price]);
 		});
 		console.log(table.toString());
+		if(message!==""){
+			console.log(message);
+		}
 		
 	}).then(function(){
 		return exit();
@@ -167,10 +184,8 @@ function printMenu(){
 
 }
 
-function run(){
-	process.stdout.write('\033c');
-	console.log("Welcome to the Store!")
-	printMenu().then(process.exit);
+function run(){	
+	printMenu("").then(process.exit);
 
 }
 
