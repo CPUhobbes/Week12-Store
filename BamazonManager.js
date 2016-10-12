@@ -12,7 +12,15 @@ db.configure({
 function checkNumber(number){
 
 	if(number.match(/^(-?\d+)$/)){
-		console.log("true");
+		return true;
+	}	
+	else{
+		return false;
+	}
+}
+
+function validatePrice(number){
+	if(number.match(/^(\d+?(\.\d{2}))$/)){
 		return true;
 	}	
 	else{
@@ -108,8 +116,9 @@ function lowInventory(){
 		rows.forEach(function(value, index){
 			table.push([value.ItemID, value.ProductName, value.StockQuantity, value.Price]);
 		});
-		
+		console.log(table.toString());
 	}).then(function(){
+		
 		return go();
 	})
 
@@ -125,7 +134,7 @@ function addItem(){
 		{
 			type: "input",
 			message: "What is the name of the product you want to add?",
-			name: "id"
+			name: "name"
 		},
 		{
 			type: "input",
@@ -136,17 +145,27 @@ function addItem(){
 		{
 			type: "input",
 			message: "What is the department?",
-			name: "quant"
+			name: "dept"
 		
 		},
 		{
 			type: "input",
 			message: "What is the price?",
-			name: "quant"
+			name: "price"
 		
 		}]).then(function (result) {
 
-			
+			if(validatePrice(result.price)&&checkNumber(result.quant)){
+
+				queryStr = "('"+result.name+"','"+result.dept+"','"+result.price+"','"+result.quant+"')";
+				return db.query('INSERT INTO products (ProductName, DepartmentName, Price, StockQuantity) VALUES '+queryStr).spread(function (rows) {
+					console.log("Item Added!");
+					return go();
+				});
+
+			}
+
+
 
 	});
 }
