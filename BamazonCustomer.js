@@ -40,88 +40,54 @@ function exit(){
 
 }
 
-function total(){
+function printReceipt(){
+	var table = new Table({
+    		head: ['Product', 'Quantity','Price'],
+    		colWidths: [30,10, 10]
+		});
 
-	//return function(){
-		//items.forEach(function(value, index){
-
-			return updateTable(items.length-1);
-		// return db.query('SELECT StockQuantity FROM products WHERE ProductName = \'Computer\'').spread(function (rows) {
-		// 		console.log("test");
-		// 		console.log(rows);
-				//db.query('UPDATE products SET StockQuantity WHERE ProductName ='+va)
-
-
-
-			//});
-	//}
-
-
-		//});
-	//}
-
-	// var queryStr ="UPDATE products SET ";
-	// items.forEach(function(value, index){
-	// 	queryStr+=()
-		
-	// });
-
-	
-	// var table = new Table({
- //    		head: ['Product', 'Quantity','Price'],
- //    		colWidths: [30,10, 10]
-	// 	});
-
-	// 	items.forEach(function(value, index){
-	// 	 	table.push([value, itemQuant[index], itemCost[index]]);
-	// 	});
-	// 	var total = 0;
-	// 	itemCost.forEach(function(value, index){
-	// 		total+=(parseFloat(value)*parseFloat(itemQuant[index]));
-	// 	});
-	// 	console.log(total);
-	// 	table.push(["---------------------------", "", ""]);
-	// 	table.push(["TOTAL ", "", total]);
+	items.forEach(function(value, index){
+	 	table.push([value, itemQuant[index], itemCost[index]]);
+	});
+	var total = 0;
+	itemCost.forEach(function(value, index){
+		total+=(parseFloat(value)*parseFloat(itemQuant[index]));
+	});
+	table.push(["---------------------------", "", "-----"]);
+	table.push(["TOTAL ", "", total.toFixed(2)]);
 
 
-	// 	console.log(table.toString());
-	// 	console.log("Thanks for shopping!")
+	console.log(table.toString());
+	console.log("Thanks for shopping!");
 
 }
 
 function updateTable(counter){
-	return db.query('SELECT StockQuantity FROM products WHERE ProductName ='+"\""+items[counter]+"\"").then(function(rows) {
-				//console.log("test");
-				//console.log(rows[0]);
-				//var temp = parseFloat(rows[0] - itemQuant[counter]);
-				var temper= rows[0][0].StockQuantity;
-				console.log(temper, itemQuant[counter])
-				return db.query('UPDATE products SET StockQuantity = 13 WHERE ProductName ='+"\""+items[counter]+"\"").then(function (morerows){
-
-
-					if(counter>0){
-						return updateTable(counter-1);
-					}
-
-				});
-
-
-				
+	return db.query('SELECT StockQuantity FROM products WHERE ProductName ='+"\""+items[counter]+"\"")
+	.then(function(rows) {
+		var temp = rows[0][0].StockQuantity - itemQuant[counter];
+		return db.query('UPDATE products SET StockQuantity = '+temp+' WHERE ProductName ='+"\""+items[counter]+"\"")
+			.then(function (morerows){
+				if(counter>0){
+					return updateTable(counter-1);
+				}
+				else{
+					printReceipt();
+				}
 			});
+			
+		});
 }
-
 
 function checkout(){
 	return inquirer.prompt([
-
-	// Here we create a basic text prompt.
 	{
 		type: "input",
 		message: "Would you like to checkout? (Y/N)",
 		name: "checkout"
 	}]).then(function (result) {
 		if(result.checkout.toUpperCase() === 'Y'){
-			return total();
+			return updateTable(items.length-1);
 		}
 		else if(result.checkout.toUpperCase() === 'N'){
 			return printMenu();
@@ -129,16 +95,11 @@ function checkout(){
 		else{
 			return checkout();
 		}
-		
-
-	}).then(function(){
-
 	});
 
 }
 
 function getQuery(id, amount){
-	//console.log(id, amount);
 	return db.query('SELECT ProductName, Price, StockQuantity FROM products WHERE ItemID ='+id).spread(function (rows) {
 		
 		if(rows.length<1){
@@ -160,10 +121,6 @@ function getQuery(id, amount){
 				return checkout();
 			}
 		}
-
-
-	}).then(function(){
-		//console.log("cool");
 	});
 }
 
@@ -171,8 +128,6 @@ function getQuery(id, amount){
 function orderItem(){
 
 	return inquirer.prompt([
-
-	// Here we create a basic text prompt.
 	{
 		type: "input",
 		message: "What is the ID of the product you want?",
@@ -220,6 +175,3 @@ function run(){
 }
 
 run();
-
-
-
