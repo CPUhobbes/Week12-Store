@@ -48,6 +48,7 @@ function exit(){
 }
 
 function printReceipt(){
+	process.stdout.write('\033c');
 	var table = new Table({
     		head: ['Product', 'Quantity','Price'],
     		colWidths: [30,10, 10]
