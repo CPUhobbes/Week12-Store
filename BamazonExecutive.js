@@ -6,7 +6,7 @@ var Promise = require("bluebird");
 db.configure({
     "host": "localhost",
     "user": "root",
-    "password": "",
+    "password": "123456",
     "database": "Bamazon"
 });
 
@@ -14,19 +14,18 @@ db.configure({
 
 function viewSales(){
 
-	return db.query('SELECT *, ProductSales - OverheadCosts AS TotalProfit FROM Departments')
+	return db.query('SELECT *, TotalSales - OverheadCosts AS TotalProfit FROM Departments')
 		.then (function(row) {
 			process.stdout.write('\033c');
 			var table = new Table({
 	    		head: ['Dept ID', 'Department Name','Product Costs', 'Overhead Costs', 'Total Profit'],
-	    		colWidths: [10,30, 10, 10, 10]
+	    		colWidths: [10,20, 10, 10, 10]
 			});
 
 			row[0].forEach(function(value, index){
-		 		table.push([value.DepartmentID, value.DepartmentName, value.ProductSales, 
-		 			value.OverHeadCosts, value.TotalProfit]);
+		 		table.push([value.DepartmentID, value.DepartmentName, value.TotalSales, 
+		 			value.OverheadCosts, value.TotalProfit]);
 			});
-			//console.log(row[0]);
 			console.log(table.toString());
 		}).then (function(){
 			return go();

@@ -1,19 +1,30 @@
+//Node modules
 var db = require('mysql2-promise')();
 var Table = require('cli-table');
 var inquirer = require('inquirer');
 var Promise = require("bluebird");
 
-var items =[];
-var itemCost= [];
-var itemQuant =[];
-
+//Database Connect
 db.configure({
     "host": "localhost",
     "user": "root",
-    "password": "",
+    "password": "123456",
     "database": "Bamazon"
 });
 
+//Object for each item in "shopping cart"
+var itemObj = function(id, name, dept, price, quantity){
+	this.id = id;
+	this.name = name;
+	this.dept = dept;
+	this.price = price;
+	this.quantity = quantity;
+}
+
+//Array of all itemObj in "shopping cart"
+var transactionList =[];
+
+//Check for valid number
 function checkNumber(number){
 
 	if(number.match(/^(\d+)$/)){
@@ -24,110 +35,79 @@ function checkNumber(number){
 	}
 }
 
-function exit(){
-	return inquirer.prompt([
+// function updateDepartmentSales(newTotal){
 
-	{
-		type: "input",
-		message: "Would you like purchase an item? (Y/N)",
-		name: "checkout"
-	}]).then(function (result) {
-		if(result.checkout.toUpperCase() === 'Y'){
-			return orderItem();
-		}
-		else if(result.checkout.toUpperCase() === 'N'){
-			console.log("Thanks for stopping by... Come again!");
-		}
-		else{
-			return exit();
-		}
-	});
+// 	return Promise.map(items, function(item, index) {
+// 		return db.query('SELECT DepartmentName FROM Products WHERE ?', [{ProductName: item}])
+// 		.then (function(productRow) {
+// 			var value = productRow[0][0].DepartmentName;
+// 			return db.query('SELECT ProductSales FROM Departments WHERE ?', [{DepartmentName: value}])
+// 		})
+// 		.then(function(salesRow){
+// 			var newTotal = (parseFloat(itemQuant[index])*parseFloat(itemCost[index]))+parseFloat(salesRow[0][0].ProductSales);
+// 			return db.query('UPDATE Departments SET ? WHERE ?', [{ProductSales: newTotal}, {DepartmentName: value}])
+// 		});
+// 	})
+// 	.then(function (){
+// 		printReceipt(newTotal);
+// 	}).catch(function(err){
+// 		console.log(err);
+// 	});
+// }
 
-}
-
-function updateDepartmentSales(newTotal){
-
-	return Promise.map(items, function(item, index) {
-		return db.query('SELECT DepartmentName FROM Products WHERE ?', [{ProductName: item}])
-		.then (function(productRow) {
-				var value = productRow[0][0].DepartmentName;
-				return db.query('SELECT ProductSales FROM Departments WHERE ?', [{DepartmentName: value}])
-		})
-		.then(function(salesRow){
-				var newTotal = (parseFloat(itemQuant[index])*parseFloat(itemCost[index]))+parseFloat(salesRow[0][0].ProductSales);
-				return db.query('UPDATE Departments SET ? WHERE ?', [{ProductSales: newTotal}, {DepartmentName: value}])
-		});
-	})
-	.then(function (){
-		printReceipt(newTotal);
-	});
-	
-
-
-
-
-
-}
-
-
-function printReceipt(receiptTotal){
+//Print receipt in table format
+function printReceipt(){
 	process.stdout.write('\033c');
+	var receiptTotal = 0;
 	var table = new Table({
     		head: ['Product', 'Quantity','Price'],
     		colWidths: [30,10, 10]
 		});
-
-	items.forEach(function(value, index){
-	 	table.push([value, itemQuant[index], itemCost[index]]);
+	//Loop through transaction list and add to table
+	transactionList.forEach(function(value, index){
+	 	table.push([value.name, value.quantity, value.price.toFixed(2)]);
+	 	receiptTotal+=(value.quantity*value.price); //Gets total from each item
 	});
-	// var total = 0;
-	// itemCost.forEach(function(value, index){
-	// 	total+=(parseFloat(value)*parseFloat(itemQuant[index]));
-	// });
+
 	table.push(["---------------------------", "", "-----"]);
 	table.push(["TOTAL ", "", receiptTotal.toFixed(2)]);
-
 
 	console.log(table.toString());
 	console.log("Thanks for shopping!");
 
 }
 
-function updateInventory(counter){
-	return db.query('SELECT StockQuantity FROM Products WHERE ProductName ='+"\""+items[counter]+"\"")
-	.then(function(rows) {
-		var temp = rows[0][0].StockQuantity - itemQuant[counter];
-		return db.query('UPDATE Products SET StockQuantity = '+temp+' WHERE ProductName ='+"\""+items[counter]+"\"")
-			.then(function (){
-				if(counter>0){
-					return updateInventory(counter-1);
-				}
-				else{
-					var total = 0;
-					itemCost.forEach(function(value, index){
-						total+=(parseFloat(value)*parseFloat(itemQuant[index]));
-					});
-					//return printReceipt(total);
-					return updateDepartmentSales(total);
-				}
-			});
+//Update inventory in database
+function updateInventory(){
+
+	return Promise.map(transactionList, function(item) {
+		var sales;
+		//Gets quantity and sales info from database
+		return db.query('SELECT StockQuantity, TotalSales FROM Products WHERE ?', [{ItemID: item.id}])
+		.then (function(quantityRow) {
+			var stock = parseInt(quantityRow[0][0].StockQuantity)- item.quantity;
+			sales = parseFloat(quantityRow[0][0].TotalSales) + (item.price * item.quantity);
+
+			//Updates new quantity and total sales in database
+			return db.query('UPDATE Products SET ? WHERE ?', [{StockQuantity: stock, TotalSales: sales}, {ItemID: item.id}])
+		})		
+		// .then(function(){
+		//  	return db.query('SELECT DepartmentName FROM Products WHERE ?', [{ProductName: item}])
+		//  })
+		.then(function(deptRow){
 			
-		});
+			return db.query('UPDATE Departments SET ? WHERE ?', [{TotalSales: sales}, {DepartmentName: item.dept}])
+
+		})
+	})
+	.then(function (){
+		printReceipt();  //Print receipt
+	}).catch(function(err){
+		console.log(err);
+	});
 }
 
-// function updateInventory(items){
-// 	Promise.map(items, function(item) {
-// 		return db.query('SELECT StockQuantity FROM Products WHERE ProductName ='+"\""+item+"\"")
-// 			.then (function(rown) {
-// 				var temp = rows[0][0].StockQuantity - itemQuant[counter];
-// 				return db.query(`UPDATE Products SET StockQuantity = ${temp} WHERE ProductName ='+"\""+items[counter]+"\"`)
-// 		})
-// 	})
-// 	.then(function (){
-// 		printReceipt();
-// 	}
-
-
+//Prompts to see if user would like to check out
 function checkout(){
 	return inquirer.prompt([
 	{
@@ -136,7 +116,7 @@ function checkout(){
 		name: "checkout"
 	}]).then(function (result) {
 		if(result.checkout.toUpperCase() === 'Y'){
-			return updateInventory(items.length-1);
+			return updateInventory();
 		}
 		else if(result.checkout.toUpperCase() === 'N'){
 			return printMenu("");
@@ -144,13 +124,20 @@ function checkout(){
 		else{
 			return checkout();
 		}
+	}).catch(function(err){
+		console.log(err);
 	});
 
 }
 
+//Function gets query based on selection by user
 function getQuery(id, amount){
-	return db.query('SELECT ProductName, Price, StockQuantity FROM Products WHERE ItemID ='+id).spread(function (rows) {
+
+	//Get name, price, and quantity from database
+	return db.query('SELECT ProductName, DepartmentName, Price, StockQuantity FROM Products WHERE ?', [{ItemID: id}])
+	.spread(function (rows) {
 		
+		//validate quantity and item
 		if(rows.length<1){
 			return printMenu("I'm sorry that Item ID does not exist in our inventory");
 		}
@@ -162,16 +149,20 @@ function getQuery(id, amount){
 				return printMenu("Sorry there are not enough items avaliable!");
 			}
 			else{
-				items.push(rows[0].ProductName);
-				itemCost.push(rows[0].Price);
-				itemQuant.push(amount);
+
+				//Create new item object and add it to "shopping list" array
+				var tempItem = new itemObj(id, rows[0].ProductName, rows[0].DepartmentName, parseFloat(rows[0].Price), parseInt(amount));
+				transactionList.push(tempItem);
 				return checkout();
+
 			}
 		}
+	}).catch(function(err){
+		console.log(err);
 	});
 }
 
-
+//Prompts user on item to purchase
 function orderItem(){
 
 	return inquirer.prompt([
@@ -194,9 +185,34 @@ function orderItem(){
 			console.log("Please enter a Number!")
 			return orderItem();
 		}
-	})
+	}).catch(function(err){
+		console.log(err);
+	});
 }
 
+//Prompts user if they would like to exit
+function exit(){
+	return inquirer.prompt([
+	{
+		type: "input",
+		message: "Would you like purchase an item? (Y/N)",
+		name: "checkout"
+	}]).then(function (result) {
+		if(result.checkout.toUpperCase() === 'Y'){
+			return orderItem();
+		}
+		else if(result.checkout.toUpperCase() === 'N'){
+			console.log("Thanks for stopping by... Come again!");
+		}
+		else{
+			return exit();
+		}
+	}).catch(function(err){
+		console.log(err);
+	});
+}
+
+//Displays all items in database
 function printMenu(message){
 	return db.query('SELECT * FROM Products').spread(function (rows) {
 		
@@ -219,13 +235,13 @@ function printMenu(message){
 	}).then(function(){
 		return exit();
 	})
-
 	.catch(function(err){
 		console.log(err);
-	})
+	});
 
 }
 
+//run program
 function run(){	
 	printMenu("").then(process.exit);
 }
