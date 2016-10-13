@@ -1,8 +1,7 @@
 var db = require('mysql2-promise')();
 var Table = require('cli-table');
 var inquirer = require('inquirer');
-
-// var table;
+var Promise = require("bluebird");
 
 var items =[];
 var itemCost= [];
@@ -11,14 +10,13 @@ var itemQuant =[];
 db.configure({
     "host": "localhost",
     "user": "root",
-    "password": "123456",
-    "database": "bamazon"
+    "password": "",
+    "database": "Bamazon"
 });
- 
 
 function checkNumber(number){
 
-	if(number.match(/\d+/)){
+	if(number.match(/^(\d+)$/)){
 		return true;
 	}	
 	else{
@@ -47,7 +45,32 @@ function exit(){
 
 }
 
-function printReceipt(){
+function updateDepartmentSales(newTotal){
+
+	return Promise.map(items, function(item, index) {
+		return db.query('SELECT DepartmentName FROM Products WHERE ?', [{ProductName: item}])
+		.then (function(productRow) {
+				var value = productRow[0][0].DepartmentName;
+				return db.query('SELECT ProductSales FROM Departments WHERE ?', [{DepartmentName: value}])
+		})
+		.then(function(salesRow){
+				var newTotal = (parseFloat(itemQuant[index])*parseFloat(itemCost[index]))+parseFloat(salesRow[0][0].ProductSales);
+				return db.query('UPDATE Departments SET ? WHERE ?', [{ProductSales: newTotal}, {DepartmentName: value}])
+		});
+	})
+	.then(function (){
+		printReceipt(newTotal);
+	});
+	
+
+
+
+
+
+}
+
+
+function printReceipt(receiptTotal){
 	process.stdout.write('\033c');
 	var table = new Table({
     		head: ['Product', 'Quantity','Price'],
@@ -57,12 +80,12 @@ function printReceipt(){
 	items.forEach(function(value, index){
 	 	table.push([value, itemQuant[index], itemCost[index]]);
 	});
-	var total = 0;
-	itemCost.forEach(function(value, index){
-		total+=(parseFloat(value)*parseFloat(itemQuant[index]));
-	});
+	// var total = 0;
+	// itemCost.forEach(function(value, index){
+	// 	total+=(parseFloat(value)*parseFloat(itemQuant[index]));
+	// });
 	table.push(["---------------------------", "", "-----"]);
-	table.push(["TOTAL ", "", total.toFixed(2)]);
+	table.push(["TOTAL ", "", receiptTotal.toFixed(2)]);
 
 
 	console.log(table.toString());
@@ -70,22 +93,40 @@ function printReceipt(){
 
 }
 
-function updateTable(counter){
-	return db.query('SELECT StockQuantity FROM products WHERE ProductName ='+"\""+items[counter]+"\"")
+function updateInventory(counter){
+	return db.query('SELECT StockQuantity FROM Products WHERE ProductName ='+"\""+items[counter]+"\"")
 	.then(function(rows) {
 		var temp = rows[0][0].StockQuantity - itemQuant[counter];
-		return db.query('UPDATE products SET StockQuantity = '+temp+' WHERE ProductName ='+"\""+items[counter]+"\"")
-			.then(function (morerows){
+		return db.query('UPDATE Products SET StockQuantity = '+temp+' WHERE ProductName ='+"\""+items[counter]+"\"")
+			.then(function (){
 				if(counter>0){
-					return updateTable(counter-1);
+					return updateInventory(counter-1);
 				}
 				else{
-					printReceipt();
+					var total = 0;
+					itemCost.forEach(function(value, index){
+						total+=(parseFloat(value)*parseFloat(itemQuant[index]));
+					});
+					//return printReceipt(total);
+					return updateDepartmentSales(total);
 				}
 			});
 			
 		});
 }
+
+// function updateInventory(items){
+// 	Promise.map(items, function(item) {
+// 		return db.query('SELECT StockQuantity FROM Products WHERE ProductName ='+"\""+item+"\"")
+// 			.then (function(rown) {
+// 				var temp = rows[0][0].StockQuantity - itemQuant[counter];
+// 				return db.query(`UPDATE Products SET StockQuantity = ${temp} WHERE ProductName ='+"\""+items[counter]+"\"`)
+// 		})
+// 	})
+// 	.then(function (){
+// 		printReceipt();
+// 	}
+
 
 function checkout(){
 	return inquirer.prompt([
@@ -95,7 +136,7 @@ function checkout(){
 		name: "checkout"
 	}]).then(function (result) {
 		if(result.checkout.toUpperCase() === 'Y'){
-			return updateTable(items.length-1);
+			return updateInventory(items.length-1);
 		}
 		else if(result.checkout.toUpperCase() === 'N'){
 			return printMenu("");
@@ -108,7 +149,7 @@ function checkout(){
 }
 
 function getQuery(id, amount){
-	return db.query('SELECT ProductName, Price, StockQuantity FROM products WHERE ItemID ='+id).spread(function (rows) {
+	return db.query('SELECT ProductName, Price, StockQuantity FROM Products WHERE ItemID ='+id).spread(function (rows) {
 		
 		if(rows.length<1){
 			return printMenu("I'm sorry that Item ID does not exist in our inventory");
@@ -157,7 +198,7 @@ function orderItem(){
 }
 
 function printMenu(message){
-	return db.query('SELECT * FROM products').spread(function (rows) {
+	return db.query('SELECT * FROM Products').spread(function (rows) {
 		
 		process.stdout.write('\033c');
 		console.log("Welcome to the Store!");
@@ -187,7 +228,6 @@ function printMenu(message){
 
 function run(){	
 	printMenu("").then(process.exit);
-
 }
 
 run();

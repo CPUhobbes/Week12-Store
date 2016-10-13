@@ -5,8 +5,8 @@ var inquirer = require('inquirer');
 db.configure({
     "host": "localhost",
     "user": "root",
-    "password": "123456",
-    "database": "bamazon"
+    "password": "",
+    "database": "Bamazon"
 });
 
 function checkNumber(number){
@@ -29,7 +29,7 @@ function validatePrice(number){
 }
 
 function viewInventory(message, callback){
-	return db.query('SELECT * FROM products').spread(function (rows) {
+	return db.query('SELECT * FROM Products').spread(function (rows) {
 		
 		process.stdout.write('\033c');
 		console.log(message);
@@ -77,7 +77,7 @@ function addInventory(message){
 
 			if(checkNumber(result.id) && checkNumber(result.quant)){
 
-				return db.query('SELECT StockQuantity FROM products WHERE ItemID = ?', result.id).spread(function (rows) {
+				return db.query('SELECT StockQuantity FROM Products WHERE ItemID = ?', result.id).spread(function (rows) {
 					process.stdout.write('\033c');
 					return [parseInt(rows[0].StockQuantity)+parseInt(result.quant), result.id];
 				}).then(function(quantObj){
@@ -103,7 +103,7 @@ function addInventory(message){
 }
 
 function lowInventory(){
-	return db.query('SELECT * FROM products WHERE StockQuantity < ?', ['5']).spread(function (rows) {
+	return db.query('SELECT * FROM Products WHERE StockQuantity < ?', ['5']).spread(function (rows) {
 		
 		process.stdout.write('\033c');
 		console.log("Items with low inventory");
@@ -158,7 +158,7 @@ function addItem(){
 			if(validatePrice(result.price)&&checkNumber(result.quant)){
 
 				queryStr = "('"+result.name+"','"+result.dept+"','"+result.price+"','"+result.quant+"')";
-				return db.query('INSERT INTO products (ProductName, DepartmentName, Price, StockQuantity) VALUES '+queryStr).spread(function (rows) {
+				return db.query('INSERT INTO Products (ProductName, DepartmentName, Price, StockQuantity) VALUES '+queryStr).spread(function (rows) {
 					console.log("Item Added!");
 					return go();
 				});
