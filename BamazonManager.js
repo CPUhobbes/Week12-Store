@@ -5,10 +5,11 @@ var inquirer = require('inquirer');
 db.configure({
     "host": "localhost",
     "user": "root",
-    "password": "",
+    "password": "123456",
     "database": "Bamazon"
 });
 
+//Checks if a valid number (with negatives)
 function checkNumber(number){
 
 	if(number.match(/^(-?\d+)$/)){
@@ -19,6 +20,8 @@ function checkNumber(number){
 	}
 }
 
+
+//Cehcks if valid price with 2 decimals
 function validatePrice(number){
 	if(number.match(/^(\d+?(\.\d{2}))$/)){
 		return true;
@@ -28,6 +31,8 @@ function validatePrice(number){
 	}
 }
 
+//View inventory
+//Used a callback because of use with adding to inventory to display menu when adding items
 function viewInventory(message, callback){
 	return db.query('SELECT * FROM Products').spread(function (rows) {
 		
@@ -56,10 +61,9 @@ function viewInventory(message, callback){
 
 }
 
-
-
+//Add to inventory supply
 function addInventory(message){
-
+	//Used a callback to show menu/inventory before displaying menu
 	return viewInventory(message, null).then(function(){
 
 		return inquirer.prompt([
@@ -97,11 +101,15 @@ function addInventory(message){
 				return addInventory("Please enter a Number!\nAdd to Inventory");
 			}
 		
+		}).catch(function(err){
+			console.log(err);
 		});
+
 	});
 
 }
 
+//Check for low inventory
 function lowInventory(){
 	return db.query('SELECT * FROM Products WHERE StockQuantity < ?', ['5']).spread(function (rows) {
 		
@@ -120,14 +128,14 @@ function lowInventory(){
 	}).then(function(){
 		
 		return go();
-	})
-
-	.catch(function(err){
+	
+	}).catch(function(err){
 		console.log(err);
-	})
+	});
 
 }
 
+//Add item to inventory menu
 function addItem(){
 
 	return inquirer.prompt([
@@ -157,20 +165,19 @@ function addItem(){
 
 			if(validatePrice(result.price)&&checkNumber(result.quant)){
 
-				queryStr = "('"+result.name+"','"+result.dept+"','"+result.price+"','"+result.quant+"')";
-				return db.query('INSERT INTO Products (ProductName, DepartmentName, Price, StockQuantity) VALUES '+queryStr).spread(function (rows) {
+				return db.query('INSERT INTO Products (ProductName, DepartmentName, Price, StockQuantity) VALUES (?,?,?,?)',
+					[result.name, result.dept, result.price, result.quant]).spread(function (rows) {
 					console.log("Item Added!");
 					return go();
 				});
 
 			}
-
-
-
+		}).catch(function(err){
+			console.log(err);
 	});
 }
 
-
+//Main menu
 function go(){
 	return inquirer.prompt([
 
@@ -205,5 +212,7 @@ function go(){
 	});
 
 }
+
+//Run
 process.stdout.write('\033c');
 go().then(process.exit);

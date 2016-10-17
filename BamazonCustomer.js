@@ -35,26 +35,6 @@ function checkNumber(number){
 	}
 }
 
-// function updateDepartmentSales(newTotal){
-
-// 	return Promise.map(items, function(item, index) {
-// 		return db.query('SELECT DepartmentName FROM Products WHERE ?', [{ProductName: item}])
-// 		.then (function(productRow) {
-// 			var value = productRow[0][0].DepartmentName;
-// 			return db.query('SELECT ProductSales FROM Departments WHERE ?', [{DepartmentName: value}])
-// 		})
-// 		.then(function(salesRow){
-// 			var newTotal = (parseFloat(itemQuant[index])*parseFloat(itemCost[index]))+parseFloat(salesRow[0][0].ProductSales);
-// 			return db.query('UPDATE Departments SET ? WHERE ?', [{ProductSales: newTotal}, {DepartmentName: value}])
-// 		});
-// 	})
-// 	.then(function (){
-// 		printReceipt(newTotal);
-// 	}).catch(function(err){
-// 		console.log(err);
-// 	});
-// }
-
 //Print receipt in table format
 function printReceipt(){
 	process.stdout.write('\033c');
@@ -77,27 +57,24 @@ function printReceipt(){
 
 }
 
-//Update inventory in database
+//Update inventory in databases (products and departments)
 function updateInventory(){
 
 	return Promise.map(transactionList, function(item) {
-		var sales;
-		//Gets quantity and sales info from database
-		return db.query('SELECT StockQuantity, TotalSales FROM Products WHERE ?', [{ItemID: item.id}])
-		.then (function(quantityRow) {
-			var stock = parseInt(quantityRow[0][0].StockQuantity)- item.quantity;
-			sales = parseFloat(quantityRow[0][0].TotalSales) + (item.price * item.quantity);
+		//Get query results from database
+		return db.query('select products.ProductName, products.StockQuantity, products.DepartmentName, departments.TotalSales From products '+
+			'inner join departments ON products.DepartmentName=departments.DepartmentName AND ?', 
+			[{'products.ItemID': item.id}])
+		 .then (function(quantityRow) {
 
-			//Updates new quantity and total sales in database
-			return db.query('UPDATE Products SET ? WHERE ?', [{StockQuantity: stock, TotalSales: sales}, {ItemID: item.id}])
-		})		
-		// .then(function(){
-		//  	return db.query('SELECT DepartmentName FROM Products WHERE ?', [{ProductName: item}])
-		//  })
-		.then(function(deptRow){
-			
-			return db.query('UPDATE Departments SET ? WHERE ?', [{TotalSales: sales}, {DepartmentName: item.dept}])
+		 	//Calculate remaining stock and total sales
+		 	var stock = parseInt(quantityRow[0][0].StockQuantity)- item.quantity;
+		 	var sales = parseFloat(quantityRow[0][0].TotalSales) + (item.price * item.quantity);
 
+		 	//update query to database
+		 	return db.query('UPDATE Products, Departments SET ? , ? WHERE ? AND ?',
+		 		[{'products.StockQuantity':stock},{'departments.TotalSales':sales},{'products.ItemID':item.id},
+		 			{'departments.DepartmentName':item.dept}])
 		})
 	})
 	.then(function (){

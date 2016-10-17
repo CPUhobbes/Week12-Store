@@ -10,8 +10,33 @@ db.configure({
     "database": "Bamazon"
 });
 
+//Checks for valid number
+function checkNumber(number){
+
+	if(number.match(/^(\d+)$/)){
+		return true;
+	}	
+	else{
+		return false;
+	}
+}
+
+//Updates database and returns to main menu
+function updateDatabase(name, overhead){
+	return db.query('INSERT INTO departments (DepartmentName, OverheadCosts, TotalSales) VALUES (?,?,?)',
+				[name, overhead, 0.00]
+	).then(function(){
+
+		return go();
+
+	}).catch(function(err){
+		console.log(err);
+	});
 
 
+}
+
+//View all sales by department
 function viewSales(){
 
 	return db.query('SELECT *, TotalSales - OverheadCosts AS TotalProfit FROM Departments')
@@ -19,7 +44,7 @@ function viewSales(){
 			process.stdout.write('\033c');
 			var table = new Table({
 	    		head: ['Dept ID', 'Department Name','Product Costs', 'Overhead Costs', 'Total Profit'],
-	    		colWidths: [10,20, 10, 10, 10]
+	    		colWidths: [9,17, 15, 16, 14]
 			});
 
 			row[0].forEach(function(value, index){
@@ -30,20 +55,44 @@ function viewSales(){
 		}).then (function(){
 			return go();
 
-
-
-		});
+		}).catch(function(err){
+		console.log(err);
+	});
 
 }
 
+//Creates a new department
 function createDepartment(){
+	return inquirer.prompt([
 
+	{
+		type: "input",
+		message: "What is the name of the new department?",
+		name: "dept"
+	},
+	{
+		type: "input",
+		message: "What is the overhead cost of the new department?",
+		name: "over"
+	}]).then(function (result) {
+
+		//Check if overhead is a number
+		if(!checkNumber(result.over)){
+			process.stdout.write('\033c');
+			console.log("Please use a number!!");
+			return createDepartment();
+		}
+		//Update database
+		else{
+			return updateDatabase(result.dept, result.over);	
+		}
+	}).catch(function(err){
+		console.log(err);
+	});
 
 }
 
-
-
-
+//Main menu
 function go(){
 	return inquirer.prompt([
 
@@ -56,10 +105,12 @@ function go(){
 		switch(result.choice){
 
 			case "View Products Sales by Departments":
+				process.stdout.write('\033c');
 				return viewSales();
 				break;
 
 			case "Create New Department":
+				process.stdout.write('\033c');
 				return createDepartment();
 				break;
 
@@ -70,9 +121,7 @@ function go(){
 	});
 
 }
+
+//Run 
+process.stdout.write('\033c');
 go().then(process.exit);
-
-
-
-
-			//SELECT *, ProductSales - OverheadCosts AS TotalProfit FROM Departments;
