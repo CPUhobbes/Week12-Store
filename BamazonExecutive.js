@@ -6,7 +6,7 @@ var Promise = require("bluebird");
 db.configure({
     "host": "localhost",
     "user": "root",
-    "password": "123456",
+    "password": "",
     "database": "Bamazon"
 });
 
@@ -26,7 +26,7 @@ function updateDatabase(name, overhead){
 	return db.query('INSERT INTO departments (DepartmentName, OverheadCosts, TotalSales) VALUES (?,?,?)',
 				[name, overhead, 0.00]
 	).then(function(){
-
+		console.log("Department Created!")
 		return go();
 
 	}).catch(function(err){
@@ -49,8 +49,9 @@ function viewSales(){
 
 			row[0].forEach(function(value, index){
 		 		table.push([value.DepartmentID, value.DepartmentName, value.TotalSales, 
-		 			value.OverheadCosts, value.TotalProfit]);
+		 			value.OverHeadCosts, value.TotalProfit]);
 			});
+			//console.log(table);
 			console.log(table.toString());
 		}).then (function(){
 			return go();

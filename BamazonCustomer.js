@@ -8,7 +8,7 @@ var Promise = require("bluebird");
 db.configure({
     "host": "localhost",
     "user": "root",
-    "password": "123456",
+    "password": "",
     "database": "Bamazon"
 });
 

@@ -5,7 +5,7 @@ var inquirer = require('inquirer');
 db.configure({
     "host": "localhost",
     "user": "root",
-    "password": "123456",
+    "password": "",
     "database": "Bamazon"
 });
 
